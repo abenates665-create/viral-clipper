@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: viral-clipper
+    env: python
+    buildCommand: |
+      curl -L https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz
+      tar -xf ffmpeg.tar.xz
+      mv ffmpeg-*-static/ffmpeg ./ffmpeg
+      mv ffmpeg-*-static/ffprobe ./ffprobe
+      chmod +x ./ffmpeg ./ffprobe
+      pip install -r requirements.txt
+    startCommand: ./ffmpeg -version && gunicorn app:app --worker-class gevent --workers 1 --timeout 600
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+    plan: free
