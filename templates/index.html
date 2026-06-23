@@ -1,0 +1,63 @@
+import os
+import json
+import uuid
+import subprocess
+import time
+import threading
+import sys
+from flask import Flask, request, jsonify, render_template, Response, send_file
+from flask_sqlalchemy import SQLAlchemy
+import yt_dlp
+import google.generativeai as genai
+
+app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///jobs.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    model = genai.GenerativeModel('gemini-1.5-flash')
+
+class Job(db.Model):
+    id = db.Column(db.String(50), primary_key=True)
+    url = db.Column(db.String(500))
+    status = db.Column(db.String(50), default='queued')
+    progress = db.Column(db.Integer, default=0)
+    result = db.Column(db.Text, default='{}')
+
+with app.app_context():
+    db.create_all()
+
+def process_video(job_id, url, clip_count):
+    job = Job.query.get(job_id)
+    if not job: return
+    
+    job.status = 'Downloading...'
+    db.session.commit()
+    
+    # Placeholder for actual processing logic
+    # Ensure all your logic here is correctly indented!
+    time.sleep(2) 
+    
+    job.progress = 100
+    job.status = 'done'
+    job.result = json.dumps({'clips': [], 'metadata': []})
+    db.session.commit()
+
+@app.route('/process', methods=['POST'])
+def start_process():
+    data = request.json
+    url = data.get('url')
+    job_id = str(uuid.uuid4())[:8]
+    new_job = Job(id=job_id, url=url, status='queued')
+    db.session.add(new_job)
+    db.session.commit()
+    
+    threading.Thread(target=process_video, args=(job_id, url, 1)).start()
+    return jsonify({'job_id': job_id})
+
+if __name__ == '__main__':
+    app.run(debug=True)
